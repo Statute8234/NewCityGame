@@ -1,5 +1,18 @@
+import ursina
 from ursina import *
+from ursina.shaders import lit_with_shadows_shader
+# ground
+class Ground(Button):
+    def __init__(self, position = (0,0,0)):
+        super().__init__()
+        self.parent = scene
+        self.position = position
+        self.scale = 1
+        self.model = 'cube'
+        self.texture = "grass"
+        self.shader = lit_with_shadows_shader
 
+# pause menu
 class MainMenu(Entity):
     def __init__(self):
         super().__init__(parent = camera.ui)
@@ -20,11 +33,20 @@ class MainMenu(Entity):
             self.main_menu.disable()
             self.settings_menu.enable()
 
-            background = Entity(model = 'cube', scale = 1, parent = self.settings_menu, color = color.gray)
-            music_slider = Slider(0, 100, default=100, height=Text.size*3, y=0, x=-0.23, step=1, vertical=False,  parent = background)
-            SFX_slider = Slider(0, 100, default=100, height=Text.size*3, y=-0.1, x=-0.23, step=1, vertical=False,  parent = background)
-            frame_slider = Slider(0, 64, default=64, height=Text.size*3, y=-0.2, x=-0.23, step=1, vertical=False,  parent = background)
-        
+            background = Entity(model='cube', scale=(1, 1, 0.1), parent=self.settings_menu, color=color.gray)
+
+            Text('Music Volume', parent=background, y=0.05, x=-0.23, origin=(-0.5, 0))
+            music_slider = Slider(0, 100, default=100, height=Text.size * 3, y=0, x=-0.23, step=1, vertical=False, parent=background)
+            
+            Text('SFX Volume', parent=background, y=-0.05, x=-0.23, origin=(-0.5, 0))
+            SFX_slider = Slider(0, 100, default=100, height=Text.size * 3, y=-0.1, x=-0.23, step=1, vertical=False, parent=background)
+            
+            Text('Frame Rate', parent=background, y=-0.15, x=-0.23, origin=(-0.5, 0))
+            frame_slider = Slider(0, 64, default=64, height=Text.size * 3, y=-0.2, x=-0.23, step=1, vertical=False, parent=background)
+
+            back_button = Button(text='Back', color=color.orange, scale_y=0.1, scale_x=0.3, y=-0.35, parent=background)
+            back_button.on_click = Func(BackMain)
+            
         buttons = [
             Button(text='Play', color = color.orange, scale_y = 0.1, scale_x = 0.3, parent = self.main_menu),
             Button(text='Settings', color = color.orange, scale_y = 0.1, scale_x = 0.3, parent = self.main_menu),
