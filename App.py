@@ -1,20 +1,21 @@
 import ursina
 from ursina import *
-from perlin_noise import PerlinNoise
 from numpy import floor
-from ursina import Default, camera
-from ursina.shaders import lit_with_shadows_shader
 import time, random, sys
-shader_name = lit_with_shadows_shader
-# hand made files
-import pauseMenu
+from ursina.texture import Texture
+from perlin_noise import PerlinNoise
+from ursina.shaders import lit_with_shadows_shader
+# hand made
+import GameObjects
+
 current_time = time.time()
 random.seed(current_time)
 ursina.SmoothFollow = True
 
-# camera position
+# camera
 startMenu_camPosition = Vec3(0, 17, -90)
-defaultPosition = Vec3(0, 10, 0)
+defaultPosition = Vec3(0,10,0)
+
 # update
 def update_day_night_cycle():
     global time_of_day
@@ -37,6 +38,7 @@ def update_day_night_cycle():
     
     sun.intensity = light_intensity
 
+# update season
 def update_season():
     global current_season_idex, current_season
     if time.time() % season_duration < time.dt:
@@ -46,7 +48,7 @@ def update_season():
 
 def update_terrain_texture():
     for entity in scene.entities:
-        if isinstance(entity, Ground):
+        if isinstance(entity, GameObjects.Ground):
             if current_season == 'spring':
                 entity.color = color.lime
             if current_season == 'summer':
@@ -54,7 +56,69 @@ def update_terrain_texture():
             if current_season == 'autumn':
                 entity.color = color.orange
             if current_season == 'winter':
-                entity.color = color.black
+                entity.color = color.yellow
+
+# Update weather
+def update_weather():
+    global weather_timer, current_weather_index, current_weather, weather_duration
+    weather_timer += 1
+    if weather_timer > weather_duration:
+        weather_timer = 0
+        current_weather_index = (current_weather_index + 1) % len(weather_types)
+        current_weather = weather_types[current_weather_index]
+        apply_weather_effects(current_weather)
+    elif weather_timer == 0:
+        weather_duration = random.randint(120,999)
+
+def apply_weather_effects(weather):
+    if weather == 'clear':
+        sky.color = color.light_gray
+        scene.fog_density = (1, 50)
+        disable_rain()
+        disable_snow()
+    elif weather == 'rain':
+        sky.color = color.gray
+        scene.fog_density = (10, 50)
+        enable_rain()
+        disable_snow()
+    elif weather == 'snow':
+        sky.color = color.white
+        scene.fog_density = (5, 50)
+        enable_snow()
+        disable_rain()
+# Enable/disable rain
+rain_entities = []
+
+def enable_rain():
+    global rain_entities
+    if not rain_entities:
+        for i in range(1000):
+            raindrop = Entity(model='cube', scale=(0.1, 1, 0.1), color=color.blue, position=(random.uniform(-100, 100), 100, random.uniform(-100, 100)))
+            raindrop.animate_y(-10, duration=random.uniform(0,2), curve=curve.linear, loop=True)
+            rain_entities.append(raindrop)
+
+def disable_rain():
+    global rain_entities
+    for raindrop in rain_entities:
+        destroy(raindrop)
+    rain_entities = []
+
+# Enable/disable snow
+snow_entities = []
+
+def enable_snow():
+    global snow_entities
+    if not snow_entities:
+        for i in range(1000):
+            snowflake = Entity(model='cube', scale=(0.1, 0.1, 0.1), color=color.white, position=(random.uniform(-100, 100), 100, random.uniform(-100, 100)))
+            snowflake.animate_y(-10, duration=random.uniform(0,2), curve=curve.linear, loop=True)
+            snow_entities.append(snowflake)
+
+def disable_snow():
+    global snow_entities
+    for snowflake in snow_entities:
+        destroy(snowflake)
+    snow_entities = []
 
 def update():
     if main_menu.main_menu.enabled:
@@ -63,77 +127,42 @@ def update():
         if camera.position == startMenu_camPosition:
             camera.position = defaultPosition
     update_day_night_cycle()
+    update_weather()
     update_season()
 
-# ground
-class Ground(Button):
-    def __init__(self, position = (0,0,0)):
-        super().__init__()
-        self.parent = scene
-        self.position = position
-        self.scale = 1
-        self.model = 'cube'
-        self.texture = "grass"
-        self.shader = shader_name
-noise = PerlinNoise(octaves=random.randint(1, 6), seed=random.randint(0, sys.maxsize))
+# dya night cycle
+day_duration = 60
+time_of_day = 30
+# weather
+weather_types = ['clear', 'rain', 'snow']
+weather_duration = random.randint(1,999)
+current_weather_index = random.randint(0, len(weather_types) - 1)
+current_weather = weather_types[current_weather_index]
+weather_timer = 0
+# seasons
+seasons = ['spring', 'summer', 'autumn', 'winter']
+season_duration = 180
+current_season_idex = random.randint(0, len(seasons) - 1)
+current_season = seasons[current_season_idex]
+
+"""Create Island"""
+noise = PerlinNoise(octaves=random.randint(1,6), seed=random.randint(0, sys.maxsize))
 freq = random.uniform(5, 30)
 amp = random.uniform(1, 15)
 terrain_radius = 30
 center_x = 0
 center_z = 0
 
-# circle
 def is_within_circle(x, z, radius):
-        return sqrt((x - center_x) ** 2 + (z - center_z) ** 2) <= radius
-
-# fill empty spaces
-def fill_empty_spaces():
-    for x in range(-terrain_radius, terrain_radius):
-        for z in range(-terrain_radius, terrain_radius):
-            position = Vec3(x, 0, z)
-            if is_within_circle(position[0], position[2], terrain_radius):
-                if not any([entity.position == position for entity in scene.entities if isinstance(entity, Ground)]):
-                    ground = Ground(position=position)
-                    ground.y = floor(noise([ground.x / freq, ground.z / freq]) * amp)
-
-# test cubes
-class Buildings(Entity):
-    def __init__(self, position = (0,0,0)):
-        super().__init__()
-        self.parent = scene
-        self.position = position
-        self.scale = 1
-        self.model = 'cube'
-        self.texture = "white_cube"
-        self.shader = shader_name
-        self.color = color.rgb(random.randint(0,255),random.randint(0,255),random.randint(0,255))
+    return sqrt((x - center_x) ** 2 + (z - center_z) ** 2) <= radius
 
 # island
-avalliblePlaces = []
 def Island(position):
-    # Create the terrain
-    for x in range(-terrain_radius, terrain_radius):
-        for z in range(-terrain_radius, terrain_radius):
+    for x in range(-terrain_radius,terrain_radius):
+        for z in range(-terrain_radius,terrain_radius):
             if is_within_circle(position[0] + x, position[2] + z, terrain_radius):
-                ground = Ground(position=(position[0] + x, 0, position[2] +  z))
+                ground = GameObjects.Ground(position=(position[0] + x, 0, position[2] + z))
                 ground.y = position[1] + floor(noise([ground.x / freq, ground.z / freq]) * amp)
-                avalliblePlaces.append(ground.position)
-
-# place buildings
-def PlaceBuildings(position):
-    for space in avalliblePlaces:
-        if (space[0], space[1], space[2]) == position:
-            building = Buildings(position=(space[0],space[1] + 1, space[2]))
-            print("place building")
-
-# dya night cycle
-day_duration = 60
-time_of_day = 30
-# seasons
-seasons = ['spring', 'summer', 'autumn', 'winter']
-season_duration = 180
-current_season_idex = random.randint(0, len(seasons) - 1)
-current_season = seasons[current_season_idex]
 
 # game
 app = Ursina()
@@ -142,18 +171,15 @@ window.fps_counter.enabled = False
 window.cog_button.enabled = False
 window.show_ursina_splash = True
 window.icon = r'assets\city.png'
-
-main_menu = pauseMenu.MainMenu()
+main_menu = GameObjects.MainMenu()
+# Island
 Island(position=(0,0,0))
-PlaceBuildings(position=(0,0,0))
-#fill_empty_spaces()
-
+# camera
+camera = EditorCamera()
 sun = DirectionalLight(shadow_map_resolution=(2048,2048))
 sun.look_at(Vec3(-1,-1,-10))
 scene.fog_density = (1, 50)
-sky = Sky(color=color.light_gray, texture = 'sky_default')
-camera = EditorCamera()
-
+sky = Sky(color=color.light_gray, texture= 'sky_default', rotation_z = 90)
 
 if __name__ == "__main__":
     app.run()
