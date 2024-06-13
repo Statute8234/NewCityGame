@@ -45,7 +45,7 @@ class Dome(Entity):
         self.scale = radius
         self.color = color.rgba(0,255,255,0.2)
         self.shader = lit_with_shadows_shader
-        self.health_bar = HealthBar(bar_color=color.red.tint(-.25), roundness=.5, max_value=100, value=50, parent = self, position = (-radius/2,radius + 1,0), scale=(radius,radius / 10,0), show_text=False, show_lines=False)
+        self.health_bar = HealthBar(bar_color=color.red.tint(-.25), roundness=.5, max_value=100, value=100, parent = self, position = (-radius/2,radius + 1,0), scale=(radius,radius / 10,0), show_text=False, show_lines=False)
 
     def create_dome(self, subdivisions, radius):
         verts = []
